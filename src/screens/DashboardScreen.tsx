@@ -48,9 +48,12 @@ export default function DashboardScreen({ navigation }: any) {
     }
   };
 
-  // Como cada processo será desenhado na tela
   const renderItem = ({ item }: any) => (
-    <TouchableOpacity style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card} 
+      // Esta é a linha mágica que adicionamos:
+      onPress={() => navigation.navigate('Details', { processo: item })}
+    >
       <Text style={styles.numeroProcesso}>{item.numero}</Text>
       
       <View style={styles.linhaPartes}>
