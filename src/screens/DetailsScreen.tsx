@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Linking, Alert, ActivityIndicator, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { supabase } from '../services/supabaseConfig';
 
-// Ativa a animação suave no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -12,7 +11,7 @@ export default function DetailsScreen({ route, navigation }: any) {
   const [statusAtual, setStatusAtual] = useState(processo.status);
   const [corAtual, setCorAtual] = useState(processo.corstatus);
   const [atualizando, setAtualizando] = useState(false);
-  const [mostrarOpcoes, setMostrarOpcoes] = useState(false); // Controle do menu
+  const [mostrarOpcoes, setMostrarOpcoes] = useState(false);
 
   const abrirJusBrasil = () => {
     const url = `https://www.jusbrasil.com.br/busca?q=${processo.numero}`;
@@ -32,19 +31,20 @@ export default function DetailsScreen({ route, navigation }: any) {
       .eq('id', processo.id);
 
     if (error) {
-      Alert.alert("Erro", "Não foi possível atualizar.");
+      Alert.alert("Erro", "Não foi possível atualizar o status.");
       setAtualizando(false);
     } else {
       setStatusAtual(novoStatus);
       setCorAtual(novaCor);
       setAtualizando(false);
-      setMostrarOpcoes(false); // Fecha o menu após mudar
+      setMostrarOpcoes(false);
     }
   };
 
   const eliminarProcesso = async () => {
     const { error } = await supabase.from('processos').delete().eq('id', processo.id);
     if (!error) navigation.goBack();
+    else Alert.alert("Erro", "Não foi possível remover o processo.");
   };
 
   return (
@@ -59,7 +59,6 @@ export default function DetailsScreen({ route, navigation }: any) {
 
         <View style={styles.divider} />
 
-        {/* STATUS CLICÁVEL */}
         <Text style={styles.label}>Status (Clique para alterar)</Text>
         <TouchableOpacity 
           style={[styles.statusBadge, { backgroundColor: corAtual || '#6c757d' }]} 
@@ -76,21 +75,22 @@ export default function DetailsScreen({ route, navigation }: any) {
           )}
         </TouchableOpacity>
 
-        {/* OPÇÕES QUE APARECEM/SOMEM */}
         {mostrarOpcoes && (
           <View style={styles.btnGrid}>
-            <TouchableOpacity style={[styles.btnOpcao, { borderColor: '#28a745' }]} onPress={() => mudarStatus('Em Andamento', '#28a745')}>
-              <Text style={[styles.btnOpcaoText, { color: '#28a745' }]}>Em Andamento</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.btnOpcao, { borderColor: '#ffc107' }]} onPress={() => mudarStatus('Audiência', '#ffc107')}>
-              <Text style={[styles.btnOpcaoText, { color: '#ffc107' }]}>Audiência</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.btnOpcao, { borderColor: '#dc3545' }]} onPress={() => mudarStatus('Urgente', '#dc3545')}>
-              <Text style={[styles.btnOpcaoText, { color: '#dc3545' }]}>Urgente</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.btnOpcao, { borderColor: '#6c757d' }]} onPress={() => mudarStatus('Finalizado', '#6c757d')}>
-              <Text style={[styles.btnOpcaoText, { color: '#6c757d' }]}>Finalizado</Text>
-            </TouchableOpacity>
+            {[
+              { nome: 'Em Andamento', cor: '#28a745' },
+              { nome: 'Audiência', cor: '#ffc107' },
+              { nome: 'Urgente', cor: '#dc3545' },
+              { nome: 'Finalizado', cor: '#6c757d' }
+            ].map((op) => (
+              <TouchableOpacity 
+                key={op.nome}
+                style={[styles.btnOpcao, { borderColor: op.cor }]} 
+                onPress={() => mudarStatus(op.nome, op.cor)}
+              >
+                <Text style={[styles.btnOpcaoText, { color: op.cor }]}>{op.nome}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
 
@@ -102,12 +102,22 @@ export default function DetailsScreen({ route, navigation }: any) {
         <Text style={styles.label}>Parte Contrária</Text>
         <Text style={styles.valor}>{processo.parte_contraria || 'Não informado'}</Text>
 
-        <Text style={styles.label}>Vara</Text>
-        <Text style={styles.valor}>{processo.vara}</Text>
+        {/* EXIBIÇÃO DO PRAZO */}
+        <Text style={styles.label}>Prazo / Próxima Audiência</Text>
+        <Text style={[styles.valor, { color: '#dc3545' }]}>{processo.prazo || 'Sem prazo definido'}</Text>
+
+        <Text style={styles.label}>Vara / Tribunal</Text>
+        <Text style={styles.valor}>{processo.vara || 'Não informada'}</Text>
+
+        {/* EXIBIÇÃO DAS ANOTAÇÕES */}
+        <Text style={styles.label}>Anotações Gerais</Text>
+        <View style={styles.notasBox}>
+          <Text style={styles.notasTexto}>{processo.anotacoes || 'Nenhuma nota adicionada.'}</Text>
+        </View>
 
         <TouchableOpacity 
           style={styles.btnDelete} 
-          onPress={() => Alert.alert("Excluir", "Tem certeza?", [{text: "Não"}, {text: "Sim", onPress: eliminarProcesso}])}
+          onPress={() => Alert.alert("Excluir", "Tem certeza que deseja apagar este processo?", [{text: "Não"}, {text: "Sim", onPress: eliminarProcesso}])}
         >
           <Text style={styles.btnDeleteText}>Remover Processo</Text>
         </TouchableOpacity>
@@ -133,6 +143,8 @@ const styles = StyleSheet.create({
   btnGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 15, padding: 10, backgroundColor: '#f1f5f9', borderRadius: 8 },
   btnOpcao: { padding: 10, borderRadius: 6, borderWidth: 1, minWidth: '47%', alignItems: 'center', backgroundColor: '#fff' },
   btnOpcaoText: { fontSize: 12, fontWeight: 'bold' },
+  notasBox: { marginTop: 8, padding: 12, backgroundColor: '#fff9e6', borderRadius: 8, borderWidth: 1, borderColor: '#ffeeba' },
+  notasTexto: { fontSize: 14, color: '#856404', fontStyle: 'italic' },
   btnDelete: { marginTop: 40, padding: 10, alignItems: 'center' },
   btnDeleteText: { color: '#d32f2f', fontSize: 12 },
   backButton: { marginTop: 20, marginBottom: 60, alignItems: 'center' },

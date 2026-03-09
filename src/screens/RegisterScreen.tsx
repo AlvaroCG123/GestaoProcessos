@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -6,100 +6,82 @@ import {
   TextInput, 
   TouchableOpacity, 
   Alert, 
-  ActivityIndicator, 
-  KeyboardAvoidingView, 
-  Platform 
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { supabase } from '../services/supabaseConfig';
 
-export default function LoginScreen({ navigation }: any) {
+export default function RegisterScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Verifica se já existe uma sessão ativa ao abrir a tela
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigation.replace('Dashboard');
-      }
-    };
-    checkUser();
-  }, []);
-
-  const handleLogin = async () => {
-    if (!email || !password) {
-      return Alert.alert("Aviso", "Por favor, preencha o e-mail e a senha.");
-    }
+  const handleSignUp = async () => {
+    if (!email || !password) return Alert.alert("Aviso", "Preenche todos os campos!");
+    if (password.length < 6) return Alert.alert("Aviso", "A senha deve ter pelo menos 6 caracteres.");
 
     setLoading(true);
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signUp({
       email: email,
       password: password,
     });
 
+    setLoading(false);
     if (error) {
-      Alert.alert("Erro no Login", "E-mail ou senha inválidos. Verifique os dados e tente novamente.");
-      setLoading(false);
+      Alert.alert("Erro ao criar conta", error.message);
     } else {
-      // Login bem-sucedido! O Supabase já guarda a sessão automaticamente.
-      setLoading(false);
-      navigation.replace('Dashboard');
+      Alert.alert(
+        "Conta Criada!", 
+        "Agora já podes aceder com o teu e-mail e senha.",
+        [{ text: "OK", onPress: () => navigation.navigate('Login') }]
+      );
     }
   };
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
       style={styles.container}
     >
-      <View style={styles.innerContainer}>
-        <Text style={styles.logo}>ADVOGADO ⚖️</Text>
-        <Text style={styles.subtitle}>Gestão de Processos Jurídicos</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backLink}>← Voltar ao Login</Text>
+        </TouchableOpacity>
+      </View>
 
-        <View style={styles.inputArea}>
-          <Text style={styles.label}>E-mail</Text>
+      <View style={styles.content}>
+        <Text style={styles.title}>Nova Conta ⚖️</Text>
+        <Text style={styles.description}>Cria o teu perfil para começares a gerir os teus processos.</Text>
+
+        <View style={styles.form}>
+          <Text style={styles.label}>E-mail Profissional</Text>
           <TextInput 
             style={styles.input} 
-            placeholder="seuemail@exemplo.com"
-            placeholderTextColor="#999"
+            placeholder="exemplo@advogado.pt"
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
             keyboardType="email-address"
           />
 
-          <Text style={styles.label}>Senha</Text>
+          <Text style={styles.label}>Senha de Acesso</Text>
           <TextInput 
             style={styles.input} 
-            placeholder="Digite sua senha"
-            placeholderTextColor="#999"
+            placeholder="Mínimo 6 caracteres"
             value={password}
             onChangeText={setPassword}
             secureTextEntry
           />
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#1e3a8a" style={{ marginTop: 20 }} />
+          ) : (
+            <TouchableOpacity style={styles.btnRegister} onPress={handleSignUp}>
+              <Text style={styles.btnText}>CRIAR MINHA CONTA</Text>
+            </TouchableOpacity>
+          )}
         </View>
-
-        {loading ? (
-          <ActivityIndicator size="large" color="#1e3a8a" />
-        ) : (
-          <>
-            <TouchableOpacity style={styles.btnLogin} onPress={handleLogin}>
-              <Text style={styles.btnLoginText}>Entrar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.btnRegister} 
-              onPress={() => navigation.navigate('Register')}
-            >
-              <Text style={styles.btnRegisterText}>
-                Não tem uma conta? <Text style={styles.linkText}>Cadastre-se</Text>
-              </Text>
-            </TouchableOpacity>
-          </>
-        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -108,71 +90,64 @@ export default function LoginScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#f8f9fa' 
+    backgroundColor: '#fff' 
   },
-  innerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 30,
+  header: { 
+    paddingTop: 50, // Ajustado para não ficar tão longe do topo
+    paddingHorizontal: 20,
+    paddingBottom: 20 
   },
-  logo: { 
-    fontSize: 34, 
-    fontWeight: 'bold', 
+  backLink: { 
     color: '#1e3a8a', 
-    textAlign: 'center',
-    marginBottom: 5 
-  },
-  subtitle: { 
-    fontSize: 14, 
-    color: '#6c757d', 
-    textAlign: 'center', 
-    marginBottom: 40,
-    letterSpacing: 1
-  },
-  inputArea: { 
-    marginBottom: 20 
-  },
-  label: { 
-    fontSize: 13, 
     fontWeight: 'bold', 
-    color: '#1e3a8a', 
-    marginBottom: 8,
-    textTransform: 'uppercase'
-  },
-  input: { 
-    backgroundColor: '#fff', 
-    borderWidth: 1, 
-    borderColor: '#dee2e6', 
-    borderRadius: 10, 
-    padding: 15, 
-    fontSize: 16, 
-    marginBottom: 20,
-    color: '#333'
-  },
-  btnLogin: { 
-    backgroundColor: '#1e3a8a', 
-    padding: 18, 
-    borderRadius: 10, 
-    alignItems: 'center', 
-    marginTop: 10,
-    elevation: 3
-  },
-  btnLoginText: { 
-    color: '#fff', 
-    fontWeight: 'bold', 
-    fontSize: 16 
-  },
-  btnRegister: { 
-    marginTop: 25, 
-    alignItems: 'center' 
-  },
-  btnRegisterText: { 
-    color: '#6c757d', 
     fontSize: 14 
   },
-  linkText: { 
+  content: { 
+    paddingHorizontal: 30,
+    // Removido o justifyContent center para não "flutuar" no meio da tela
+  },
+  title: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
     color: '#1e3a8a', 
-    fontWeight: 'bold',
-    textDecorationLine: 'underline'
+    marginBottom: 8 
+  },
+  description: { 
+    fontSize: 14, 
+    color: '#6c757d', 
+    marginBottom: 30 
+  },
+  form: { 
+    width: '100%' 
+  },
+  label: { 
+    fontSize: 11, 
+    fontWeight: 'bold', 
+    color: '#999', 
+    marginBottom: 6, 
+    textTransform: 'uppercase' 
+  },
+  input: { 
+    backgroundColor: '#f8f9fa', 
+    borderWidth: 1, 
+    borderColor: '#eee', 
+    borderRadius: 8, 
+    padding: 12, // Um pouco mais compacto
+    fontSize: 16, 
+    marginBottom: 15 
+  },
+  btnRegister: { 
+    backgroundColor: '#1e3a8a', 
+    padding: 16, 
+    borderRadius: 8, 
+    alignItems: 'center', 
+    marginTop: 10, 
+    elevation: 2 
+  },
+  btnText: { 
+    color: '#fff', 
+    fontWeight: 'bold', 
+    fontSize: 15, 
+    letterSpacing: 1 
   }
 });

@@ -7,17 +7,17 @@ export default function CadastroScreen({ navigation }: any) {
   const [cliente, setCliente] = useState('');
   const [parte, setParte] = useState('');
   const [vara, setVara] = useState('');
+  const [prazo, setPrazo] = useState(''); // Estado para o Prazo
+  const [notas, setNotas] = useState(''); // Estado para Anotações
   
-  // Novos estados para Status
   const [status, setStatus] = useState('Novo Processo');
-  const [cor, setCor] = useState('#28a745'); // Verde por padrão
+  const [cor, setCor] = useState('#28a745');
 
-  // FUNÇÃO QUE FORMATA O NÚMERO AUTOMATICAMENTE (0000000-00.0000.0.00.0000)
+  // Máscara CNJ: 0000000-00.0000.0.00.0000
   const formatarNumero = (texto: string) => {
-    const limpo = texto.replace(/\D/g, ''); // Remove tudo que não é número
+    const limpo = texto.replace(/\D/g, '');
     let m = limpo;
-
-    if (m.length > 20) m = m.substring(0, 20); // Limite de 20 números do CNJ
+    if (m.length > 20) m = m.substring(0, 20);
 
     if (m.length > 7) m = m.substring(0, 7) + '-' + m.substring(7);
     if (m.length > 10) m = m.substring(0, 10) + '.' + m.substring(10);
@@ -30,45 +30,58 @@ export default function CadastroScreen({ navigation }: any) {
 
   const selecionarStatus = (tipo: string) => {
     setStatus(tipo);
-    if (tipo === 'Novo Processo') setCor('#28a745'); // Verde
-    if (tipo === 'Urgente') setCor('#dc3545');       // Vermelho
-    if (tipo === 'Audiência') setCor('#ffc107');    // Amarelo
-    if (tipo === 'Finalizado') setCor('#6c757d');    // Cinza
+    if (tipo === 'Novo Processo') setCor('#28a745');
+    if (tipo === 'Urgente') setCor('#dc3545');
+    if (tipo === 'Audiência') setCor('#ffc107');
+    if (tipo === 'Finalizado') setCor('#6c757d');
   };
 
   const salvarProcesso = async () => {
     if (numero.length < 15 || !cliente) {
-      Alert.alert("Erro", "Preencha o número corretamente e o nome do cliente.");
+      Alert.alert("Erro", "Preencha o número e o cliente.");
       return;
     }
 
-    const { error } = await supabase.from('processos').insert([
-      { 
-        numero, 
-        cliente, 
-        parte_contraria: parte, 
-        vara, 
-        status: status, 
-        corstatus: cor 
-      }
-    ]);
+    try {
+      // Pega o ID do usuário logado para salvar no campo userid/user_id
+      const { data: { user } } = await supabase.auth.getUser();
 
-    if (error) {
-      Alert.alert("Erro ao salvar", error.message);
-    } else {
+      if (!user) {
+        Alert.alert("Erro", "Usuário não autenticado.");
+        return;
+      }
+
+      const { error } = await supabase.from('processos').insert([
+        { 
+          numero, 
+          cliente, 
+          parte_contraria: parte, 
+          vara, 
+          status, 
+          corstatus: cor,
+          prazo: prazo, // Salvando o prazo
+          anotacoes: notas, // Salvando as notas
+          userid: user.id // Vincula ao usuário logado
+        }
+      ]);
+
+      if (error) throw error;
+
       Alert.alert("Sucesso", "Processo cadastrado!");
       navigation.goBack();
+    } catch (error: any) {
+      Alert.alert("Erro ao salvar", error.message);
     }
   };
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.label}>Número do Processo (Formatação Automática)</Text>
+      <Text style={styles.label}>Número do Processo</Text>
       <View style={styles.row}>
         <TextInput 
           style={[styles.input, { flex: 1 }]} 
           value={numero} 
-          onChangeText={formatarNumero} // Usa a função de formatar
+          onChangeText={formatarNumero} 
           keyboardType="numeric"
           placeholder="0000000-00.0000.0.00.0000"
         />
@@ -78,10 +91,10 @@ export default function CadastroScreen({ navigation }: any) {
       </View>
 
       <Text style={styles.label}>Cliente</Text>
-      <TextInput style={styles.input} value={cliente} onChangeText={setCliente} />
+      <TextInput style={styles.input} value={cliente} onChangeText={setCliente} placeholder="Nome do cliente" />
 
       <Text style={styles.label}>Parte Contrária</Text>
-      <TextInput style={styles.input} value={parte} onChangeText={setParte} />
+      <TextInput style={styles.input} value={parte} onChangeText={setParte} placeholder="Ex: Empresa X ou Pessoa Y" />
 
       <Text style={styles.label}>Status do Processo</Text>
       <View style={styles.statusContainer}>
@@ -96,8 +109,26 @@ export default function CadastroScreen({ navigation }: any) {
         ))}
       </View>
 
+      <Text style={styles.label}>Prazo / Próxima Audiência</Text>
+      <TextInput 
+        style={styles.input} 
+        value={prazo} 
+        onChangeText={setPrazo} 
+        placeholder="DD/MM/AAAA" 
+      />
+
       <Text style={styles.label}>Vara / Tribunal</Text>
-      <TextInput style={styles.input} value={vara} onChangeText={setVara} />
+      <TextInput style={styles.input} value={vara} onChangeText={setVara} placeholder="Ex: 1ª Vara Cível de Pelotas" />
+
+      <Text style={styles.label}>Anotações Gerais</Text>
+      <TextInput 
+        style={[styles.input, { height: 100, textAlignVertical: 'top' }]} 
+        value={notas} 
+        onChangeText={setNotas} 
+        multiline 
+        numberOfLines={4}
+        placeholder="Escreva detalhes importantes aqui..."
+      />
 
       <TouchableOpacity style={styles.btnSalvar} onPress={salvarProcesso}>
         <Text style={styles.btnSalvarText}>Salvar Processo</Text>
