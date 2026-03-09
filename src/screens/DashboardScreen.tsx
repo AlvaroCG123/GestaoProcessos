@@ -1,57 +1,56 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TouchableOpacity, 
+  FlatList, 
+  ActivityIndicator, 
+  RefreshControl 
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Nossa lista de processos falsos para testar o visual
-const processosMock = [
-  {
-    id: '1',
-    numero: '5001234-56.2023.8.21.0022',
-    cliente: 'João da Silva',
-    parteContraria: 'Banco do Brasil S.A.',
-    vara: '1ª Vara Cível de Pelotas',
-    status: 'Prazo Aberto',
-    corStatus: '#dc3545' // Vermelho
-  },
-  {
-    id: '2',
-    numero: '5009876-54.2022.8.21.0022',
-    cliente: 'Maria Oliveira',
-    parteContraria: 'Estado do RS',
-    vara: 'Juizado Especial da Fazenda Pública',
-    status: 'Aguardando Sentença',
-    corStatus: '#198754' // Verde
-  },
-  {
-    id: '3',
-    numero: '5013344-11.2024.8.21.0022',
-    cliente: 'Carlos Souza',
-    parteContraria: 'Seguradora Y',
-    vara: '2ª Vara Cível de Pelotas',
-    status: 'Audiência Marcada',
-    corStatus: '#ffc107' // Amarelo
-  }
-];
+import { supabase } from '../services/supabaseConfig';
 
 export default function DashboardScreen({ navigation }: any) {
-  
-  // O botão de sair blindado
-  const handleLogout = async () => {
+  const [processos, setProcessos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // FUNÇÃO PARA BUSCAR DADOS DO SUPABASE
+  const fetchProcessos = async () => {
     try {
-      await AsyncStorage.removeItem('@token_advogado');
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }],
-      });
-    } catch (error) {
-      console.log('Erro ao deslogar:', error);
+      const { data, error } = await supabase
+        .from('processos')
+        .select('*')
+        .order('id', { ascending: false }); // Mostra os mais novos primeiro
+
+      if (error) throw error;
+      setProcessos(data || []);
+    } catch (error: any) {
+      console.error('Erro ao buscar processos:', error.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  };
+
+  useEffect(() => {
+    fetchProcessos();
+  }, []);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchProcessos();
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.removeItem('@token_advogado');
+    navigation.replace('Login');
   };
 
   const renderItem = ({ item }: any) => (
     <TouchableOpacity 
       style={styles.card} 
-      // Esta é a linha mágica que adicionamos:
       onPress={() => navigation.navigate('Details', { processo: item })}
     >
       <Text style={styles.numeroProcesso}>{item.numero}</Text>
@@ -59,76 +58,98 @@ export default function DashboardScreen({ navigation }: any) {
       <View style={styles.linhaPartes}>
         <Text style={styles.clienteText}>{item.cliente}</Text>
         <Text style={styles.versusText}> X </Text>
-        <Text style={styles.parteContrariaText}>{item.parteContraria}</Text>
+        <Text style={styles.parteContrariaText}>{item.parte_contraria}</Text>
       </View>
       
       <Text style={styles.varaText}>{item.vara}</Text>
       
-      <View style={[styles.tagStatus, { backgroundColor: item.corStatus }]}>
+      <View style={[styles.tagStatus, { backgroundColor: item.corstatus || '#6c757d' }]}>
         <Text style={styles.tagStatusText}>{item.status}</Text>
       </View>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.containerCentro}>
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text style={{ marginTop: 10, color: '#6c757d' }}>Carregando processos...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       {/* Cabeçalho */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.title}>Meus Processos</Text>
-          <Text style={styles.subtitle}>Resumo do dia</Text>
+          <Text style={styles.headerTitle}>Meus Processos</Text>
+          <Text style={styles.headerSubtitle}>{processos.length} processos ativos</Text>
         </View>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Sair</Text>
         </TouchableOpacity>
       </View>
 
-      {/* A lista renderizada */}
+      {/* Lista */}
       <FlatList
-        data={processosMock}
-        keyExtractor={(item) => item.id}
+        data={processos}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={renderItem}
         contentContainerStyle={styles.listaContainer}
-        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>Nenhum processo encontrado.</Text>
+            <Text style={styles.emptySubtext}>Cadastre um processo no painel do Supabase.</Text>
+          </View>
+        }
       />
     </View>
   );
 }
 
-// Estilos
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8f9fa' },
+  containerCentro: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
     paddingHorizontal: 20, 
-    paddingTop: 40, 
-    paddingBottom: 20,
+    paddingTop: 50, 
+    paddingBottom: 20, 
     backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#dee2e6'
+    borderBottomColor: '#eee'
   },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1e3a8a' },
-  subtitle: { fontSize: 14, color: '#6c757d' },
-  logoutButton: { padding: 8, borderRadius: 6, backgroundColor: '#f8d7da' },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e3a8a' },
+  headerSubtitle: { fontSize: 13, color: '#6c757d' },
+  logoutButton: { padding: 8, backgroundColor: '#fff0f0', borderRadius: 6 },
   logoutText: { color: '#dc3545', fontWeight: 'bold', fontSize: 12 },
-  listaContainer: { padding: 20 },
+  listaContainer: { padding: 15 },
   card: { 
     backgroundColor: '#fff', 
-    borderRadius: 8, 
+    borderRadius: 10, 
     padding: 15, 
     marginBottom: 15, 
-    borderWidth: 1, 
-    borderColor: '#dee2e6',
-    elevation: 2 
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  numeroProcesso: { fontSize: 14, fontWeight: 'bold', color: '#495057', marginBottom: 8 },
-  linhaPartes: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
+  numeroProcesso: { fontSize: 12, color: '#999', marginBottom: 5, fontFamily: 'monospace' },
+  linhaPartes: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 },
   clienteText: { fontSize: 16, fontWeight: 'bold', color: '#1e3a8a' },
-  versusText: { fontSize: 14, color: '#6c757d', fontWeight: 'bold' },
-  parteContrariaText: { fontSize: 14, color: '#6c757d' },
-  varaText: { fontSize: 12, color: '#adb5bd', marginBottom: 12 },
-  tagStatus: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4 },
-  tagStatusText: { color: '#fff', fontSize: 12, fontWeight: 'bold' }
+  versusText: { fontSize: 14, color: '#dc3545', fontWeight: 'bold', marginHorizontal: 4 },
+  parteContrariaText: { fontSize: 15, color: '#444' },
+  varaText: { fontSize: 12, color: '#666', fontStyle: 'italic', marginBottom: 12 },
+  tagStatus: { alignSelf: 'flex-start', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20 },
+  tagStatusText: { color: '#fff', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' },
+  emptyContainer: { marginTop: 50, alignItems: 'center' },
+  emptyText: { fontSize: 16, color: '#444', fontWeight: 'bold' },
+  emptySubtext: { fontSize: 14, color: '#999', marginTop: 5 }
 });
