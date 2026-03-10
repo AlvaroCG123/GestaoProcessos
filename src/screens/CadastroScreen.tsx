@@ -1,30 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  TextInput, 
-  TouchableOpacity, 
-  Linking, 
-  Alert, 
-  ScrollView, 
-  KeyboardAvoidingView, 
-  Platform,
-  SafeAreaView
+  StyleSheet, Text, View, TextInput, TouchableOpacity, 
+  Linking, Alert, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView 
 } from 'react-native';
 import { supabase } from '../services/supabaseConfig';
 import { useTheme } from '../context/ThemeContext';
 import { addDays, isWeekend, format } from 'date-fns';
 import * as Notifications from 'expo-notifications';
 
-// 1. CONFIGURAÇÃO DE COMPORTAMENTO DA NOTIFICAÇÃO (CORRIGIDO)
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
-    shouldShowBanner: true, // Adicionado para corrigir erro TS
-    shouldShowList: true,   // Adicionado para corrigir erro TS
+    shouldShowBanner: true, 
+    shouldShowList: true,   
   }),
 });
 
@@ -39,7 +29,6 @@ export default function CadastroScreen({ navigation }: any) {
   const [status, setStatus] = useState('Novo Processo');
   const [cor, setCor] = useState('#28a745');
 
-  // Solicitar permissão ao abrir a tela
   useEffect(() => {
     (async () => {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -48,34 +37,26 @@ export default function CadastroScreen({ navigation }: any) {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
-      if (finalStatus !== 'granted') {
-        console.log('Permissão de notificação negada');
-      }
     })();
   }, []);
 
-  // --- CALCULADORA DE DIAS ÚTEIS (CPC) ---
   const calcularDiasUteis = (dias: number) => {
     let dataAtual = new Date();
     let contagem = 0;
-
     while (contagem < dias) {
       dataAtual = addDays(dataAtual, 1);
-      if (!isWeekend(dataAtual)) {
-        contagem++;
-      }
+      if (!isWeekend(dataAtual)) contagem++;
     }
     const dataFinal = format(dataAtual, 'dd/MM/yyyy');
     setPrazo(dataFinal);
     Alert.alert("Calculadora CPC", `Prazo de ${dias} dias úteis calculado para: ${dataFinal}`);
   };
 
-  // --- AGENDAR NOTIFICAÇÃO (CORRIGIDO PARA TS) ---
   const agendarNotificacao = async (dataString: string, processoNum: string) => {
     try {
       const [dia, mes, ano] = dataString.split('/').map(Number);
       const dataAlvo = new Date(ano, mes - 1, dia, 9, 0, 0); 
-      const dataLembrete = addDays(dataAlvo, -1); // 24h antes
+      const dataLembrete = addDays(dataAlvo, -1); 
 
       if (dataLembrete > new Date()) {
         await Notifications.scheduleNotificationAsync({
@@ -84,14 +65,12 @@ export default function CadastroScreen({ navigation }: any) {
             body: `O processo ${processoNum} do cliente ${cliente} vence amanhã.`,
             sound: true,
           },
-          // Gatilho corrigido para o tipo DateTriggerInput
-          trigger: {
-            date: dataLembrete,
-          } as Notifications.DateTriggerInput, 
+          trigger: { date: dataLembrete } as Notifications.DateTriggerInput, 
         });
       }
     } catch (e) {
-      console.error("Erro ao agendar notificação", e);
+      // Engole o erro para não travar o salvamento no Expo Go
+      console.log("Aviso: Notificações não suportadas no Expo Go.");
     }
   };
 
@@ -136,7 +115,7 @@ export default function CadastroScreen({ navigation }: any) {
       }]);
 
       if (error) throw error;
-      Alert.alert("Sucesso", "Processo salvo e lembrete agendado!");
+      Alert.alert("Sucesso", "Processo salvo!");
       navigation.goBack();
     } catch (error: any) {
       Alert.alert("Erro", error.message);
@@ -159,7 +138,7 @@ export default function CadastroScreen({ navigation }: any) {
             <TextInput 
               style={[styles.input, isDark && styles.inputDark, { flex: 1 }]} 
               value={numero} onChangeText={formatarNumero} keyboardType="numeric" 
-              placeholder="0000000-00.0000.0.00.0000" placeholderTextColor={isDark ? "#555" : "#999"}
+              placeholder="0000000-00..." placeholderTextColor={isDark ? "#555" : "#999"}
             />
             <TouchableOpacity 
               style={[styles.btnBusca, isDark && styles.btnBuscaDark]} 
@@ -172,6 +151,7 @@ export default function CadastroScreen({ navigation }: any) {
           <Text style={[styles.label, isDark && styles.labelDark]}>Cliente / Autor</Text>
           <TextInput style={[styles.input, isDark && styles.inputDark]} value={cliente} onChangeText={setCliente} placeholder="Nome do seu cliente" placeholderTextColor={isDark ? "#555" : "#999"} />
 
+          {/* CALCULADORA CPC */}
           <Text style={[styles.label, isDark && styles.labelDark]}>Calculadora de Prazos (Dias Úteis)</Text>
           <View style={styles.calcRow}>
             {[5, 10, 15].map(d => (
@@ -202,10 +182,10 @@ export default function CadastroScreen({ navigation }: any) {
           </View>
 
           <Text style={[styles.label, isDark && styles.labelDark]}>Anotações</Text>
-          <TextInput style={[styles.input, isDark && styles.inputDark, { height: 100, textAlignVertical: 'top' }]} value={notas} onChangeText={setNotas} multiline placeholder="Notas sobre o caso..." placeholderTextColor={isDark ? "#555" : "#999"} />
+          <TextInput style={[styles.input, isDark && styles.inputDark, { height: 100, textAlignVertical: 'top' }]} value={notas} onChangeText={setNotas} multiline placeholder="Notas..." placeholderTextColor={isDark ? "#555" : "#999"} />
 
           <TouchableOpacity style={styles.btnSalvar} onPress={salvarProcesso}>
-            <Text style={styles.btnSalvarText}>Salvar e Agendar Lembrete</Text>
+            <Text style={styles.btnSalvarText}>Salvar Processo</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
